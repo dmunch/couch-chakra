@@ -8,8 +8,9 @@ PROJECT ?= $(notdir $(BASEDIR))
 PROJECT := $(strip $(PROJECT))
 
 
-C_SRC_DIR = $(CURDIR)
+C_SRC_DIR = $(CURDIR)/src
 C_SRC_OUTPUT = bin/couch-chakra
+OBJDIR = obj
 
 # System type and C compiler/flags.
 
@@ -44,30 +45,30 @@ link_verbose = $(link_verbose_$(V))
 
 SOURCES := $(shell find $(C_SRC_DIR) -type f \( -name "*.c" \))
 
-OBJECTS = $(addsuffix .o, $(basename $(SOURCES)))
+OBJECTS = $(addprefix $(OBJDIR)/, $(addsuffix .o, $(basename $(notdir $(SOURCES)))))
 
 COMPILE_C = $(c_verbose) $(CC) $(CFLAGS) $(CPPFLAGS) -c
 
-$(C_SRC_OUTPUT): obj/main.js.h $(OBJECTS)
+$(C_SRC_OUTPUT): $(OBJDIR)/main.js.h $(OBJECTS)
 	@mkdir -p bin/
 	$(link_verbose) $(CC) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -o $(C_SRC_OUTPUT)
 
-%.o: %.c
+$(OBJDIR)/%.o: $(C_SRC_DIR)/%.c
 	$(COMPILE_C) $(OUTPUT_OPTION) $<
 
-obj/main.js: js/esprima.js js/escodegen.browser.min.js js/normalizeFunction.js 
-	@mkdir -p obj/
+$(OBJDIR)/main.js: js/esprima.js js/escodegen.browser.min.js js/normalizeFunction.js 
+	@mkdir -p $(OBJDIR) 
 	cat $^ > $@
 
-obj/main.js.h: obj/main.js 
+$(OBJDIR)/main.js.h: $(OBJDIR)/main.js 
 	xxd -i $< $@
 
 clean:
 	@rm -f $(C_SRC_OUTPUT) $(OBJECTS)
-	@rm -rf obj/
+	@rm -rf $(OBJDIR) 
 
-check: obj/chai.js
+check: $(OBJDIR)/chai.js
 	./tests/run.sh
 
-obj/chai.js:
+$(OBJDIR)/chai.js:
 	curl http://chaijs.com/chai.js > $@

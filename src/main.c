@@ -21,7 +21,7 @@
 #include "couch_readline.h"
 #include "couch_readfile.h"
 
-#include "obj/main.js.h"
+#include "../obj/main.js.h"
 
 void beforeCollectFunWithContextCallback(JsRef funInContext, void* callbackState);
 
