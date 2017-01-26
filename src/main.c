@@ -14,8 +14,10 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <ChakraCore.h>
+#include <bert.h>
 
 #include "couch_args.h"
 #include "couch_readline.h"
@@ -356,8 +358,107 @@ void printException(JsErrorCode error)
   printProperties(exception); 
 }
 
+JsValueRef bert_to_js(bert_data_t* data) 
+{
+  JsValueRef value;
+  switch(data->type) {
+    case bert_data_none:
+      break;
+    case bert_data_boolean:
+      break;
+    case bert_data_int:
+         JsIntToNumber(data->integer, &value);
+      break;
+    case bert_data_float:
+      break;
+    case bert_data_atom:
+      break;
+    case bert_data_string:
+      JsCreateString(data->string.text, data->string.length, &value);
+      break;
+    case bert_data_bin:
+      break;
+    case bert_data_tuple:
+      break;
+    case bert_data_list: {
+      int length = bert_list_length(data->list);
+      JsCreateArray(length, &value);
+      int i = 0;
+      JsValueRef index;
+      for(bert_list_node_t* node = data->list->head; node; i++, node = node->next) {
+         JsIntToNumber(i, &index);
+         JsSetIndexedProperty(value, index, bert_to_js(node->data));
+      }
+      break;
+     }
+    case bert_data_dict:
+      break;
+    case bert_data_time:
+      break;
+    case bert_data_regex:
+      break;
+    case bert_data_nil:
+        break;
+  }
+  return value;
+}
+bert_decoder_t *decoder;
+
+JS_FUN_DEF(bertReadTerm)
+{
+  JsValueRef falseValue;
+  JsGetFalseValue(&falseValue);
+  
+//  bert_decoder_t *decoder = bert_decoder_create();
+//  bert_decoder_stream(decoder, STDIN_FILENO);
+
+  bert_data_t *data;
+  int result;
+  
+  // decode BERT data
+  if ((result = bert_decoder_pull(decoder, &data)) != 1)
+  {
+    fprintf(stderr,"bert error: %s\n", bert_strerror(result));
+
+    //bert_decoder_destroy(decoder);
+    return falseValue;
+  }
+
+  fprintf(stderr,"BERT data is %x\n", data->type);
+  /*
+  if (data->type != bert_data_tuple)
+  {
+    fprintf(stderr,"BERT data was not a tuple but %x\n", data->type);
+
+    bert_data_destroy(data);
+    bert_decoder_destroy(decoder);
+    
+    return falseValue;
+  }
+
+  fprintf(stderr, "BERT tuple decoded with %d elements\n",data->tuple->length);
+
+  //JsValueRef obj;
+  //JsCreateObject(context, &obj);
+  for(int i = 0; i < data->tuple->length; i++) {
+    
+    if(data->tuple->elements[i]->type != bert_data_string) {
+      fprintf(stderr,"BERT data was not a string but %x\n", data->tuple->elements[i]->type);
+    }
+  }
+  */
+
+  JsValueRef value = bert_to_js(data);
+  bert_data_destroy(data);
+  //bert_decoder_destroy(decoder);
+  return value;
+}
+
 int main(int argc, const char* argv[])
 {
+  decoder = bert_decoder_create();
+  bert_decoder_stream(decoder, STDIN_FILENO);
+  
     JsRuntimeHandle runtime;
     JsContextRef context;
     JsErrorCode error;
@@ -382,6 +483,7 @@ int main(int argc, const char* argv[])
     evalCxContext->runtime = runtime;
 
     create_function(globalObject, "readline", readline, NULL);
+    create_function(globalObject, "bertReadTerm", bertReadTerm, NULL);
     create_function(globalObject, "print", print, NULL);
     create_function(globalObject, "seal", seal, NULL);
     create_function(globalObject, "gc", gc, runtime);
@@ -422,6 +524,7 @@ int main(int argc, const char* argv[])
     }
    
     free(evalCxContext); 
+    bert_decoder_destroy(decoder);
     JsSetCurrentContext(JS_INVALID_REFERENCE);
     JsDisposeRuntime(runtime);
 

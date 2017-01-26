@@ -1,6 +1,9 @@
 CHAKRA_INCLUDE_DIR ?= /Users/jack/Projects/ChakraCore/lib/Jsrt/ 
 CHAKRA_LD_FLAGS ?= -L/Users/jack/Projects/ChakraCore/BuildLinux/Test/bin/ChakraCore/ -lChakraCore 
 
+LIBBERT_INCLUDE_DIR ?= /Users/jack/Projects/libBERT/include
+LIBBERT_LD_FLAGS ?= -L/Users/jack/Projects/libBERT/ -lBERT
+
 CURDIR := $(shell pwd)
 BASEDIR := $(abspath $(CURDIR)/..)
 
@@ -19,7 +22,7 @@ ifeq ($(UNAME_SYS), Darwin)
 	CC = cc
 	CFLAGS = -O3 -std=c99 -arch x86_64 -finline-functions -Wall -Wmissing-prototypes 
 	CXXFLAGS = -O3 -arch x86_64 -finline-functions -Wall
-	LDFLAGS = -arch x86_64 -flat_namespace -undefined suppress
+	LDFLAGS = -arch x86_64 
 else ifeq ($(UNAME_SYS), FreeBSD)
 	CC = cc
 	CFLAGS = -O3 -std=c99 -finline-functions -Wall -Wmissing-prototypes
@@ -30,10 +33,10 @@ else ifeq ($(UNAME_SYS), Linux)
 	CXXFLAGS = -O3 -finline-functions -Wall
 endif
 
-CFLAGS += -fPIC -I $(CHAKRA_INCLUDE_DIR)
 CXXFLAGS += -fPIC -I $(CHAKRA_INCLUDE_DIR)
+CFLAGS += -fPIC -I $(CHAKRA_INCLUDE_DIR) -I $(LIBBERT_INCLUDE_DIR)
 
-LDLIBS += $(CHAKRA_LD_FLAGS)
+LDLIBS += $(CHAKRA_LD_FLAGS) $(LIBBERT_LD_FLAGS)
 
 # Verbosity.
 

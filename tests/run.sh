@@ -14,8 +14,15 @@ for filename in $TESTS_DIR/*.js; do
   if [[ ${header:0:2} == "//" ]] ; then 
     params=${header#"//"}
   fi
+  
+  pipeHeader=$(head -2 $filename | tail -1)
+  if [[ ${pipeHeader:0:2} == "//" ]] ; then 
+    pipe=${pipeHeader#"//"}
+    eval $pipe | $CHAKRA_BIN -d $params $CHAI_JS "$filename"
+  else
+    $CHAKRA_BIN -d $params $CHAI_JS "$filename"
+  fi
 
-  $CHAKRA_BIN -d $params $CHAI_JS "$filename"
   rc=$?
   if [[ $rc != 0 ]]; then
     echo -e "$filename ${RED}failed${NC}." 
