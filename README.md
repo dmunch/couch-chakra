@@ -10,7 +10,7 @@ build on top of Microsoft's [ChakraCore](https://github.com/Microsoft/ChakraCore
 - Learning the inner workings of the CouchDB Query Server Subsystem
 - Get my C skills back out of the closet
 - Have fun working with fancy technology
-- It's used in Microsoft's [DocumentDB](https://azure.microsoft.com/en-us/blog/the-road-ahead-for-azure-documentdb-with-chakracore/)
+- ChakraCore is used in Microsoft's [DocumentDB](https://azure.microsoft.com/en-us/blog/the-road-ahead-for-azure-documentdb-with-chakracore/)
 
 ### Status
 
@@ -69,3 +69,9 @@ and run `make`. If you want to run the (two very simplistic) tests, run `make ch
 is very early, it builds on my machine™ which runs on MacOS X 10.11.6 with latest xcode.
 
 
+## References
+
+- [CouchDB 2.0 Query Server Interface Proposal](https://docs.google.com/document/d/1JtfvCpNB9pRQyLhS5KkkEdJ-ghSCv89xnw5HDMTCsp8/edit)
+- [COUCHDB-1743 Make the view server & protocol faster](https://issues.apache.org/jira/browse/COUCHDB-1743)
+- [COUCHDB-1894 Add experimental NodeJS query server](https://issues.apache.org/jira/browse/COUCHDB-1894)
+- [COUCHDB-1643 Switch to V8](https://issues.apache.org/jira/browse/COUCHDB-1643)
