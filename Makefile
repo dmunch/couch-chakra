@@ -1,6 +1,9 @@
 CHAKRA_INCLUDE_DIR ?= /Users/jack/Projects/ChakraCore/lib/Jsrt/ 
 CHAKRA_LD_FLAGS ?= -L/Users/jack/Projects/ChakraCore/BuildLinux/Test/bin/ChakraCore/ -lChakraCore 
 
+LIBUV_INCLUDE_DIR = /usr/local/Cellar/libuv/1.11.0/include
+LIBUV_LD_FLAGS ?= -L/usr/local/Cellar/libuv/1.11.0/lib/ -luv
+
 CURDIR := $(shell pwd)
 BASEDIR := $(abspath $(CURDIR)/..)
 
@@ -30,10 +33,10 @@ else ifeq ($(UNAME_SYS), Linux)
 	CXXFLAGS = -O3 -finline-functions -Wall
 endif
 
-CFLAGS += -fPIC -I $(CHAKRA_INCLUDE_DIR)
-CXXFLAGS += -fPIC -I $(CHAKRA_INCLUDE_DIR)
+CFLAGS += -fPIC -I $(CHAKRA_INCLUDE_DIR) $(LIBUV_INCLUDE_DIR)
+CXXFLAGS += -fPIC -I $(CHAKRA_INCLUDE_DIR) $(LIBUV_INCLUDE_DIR)
 
-LDLIBS += $(CHAKRA_LD_FLAGS)
+LDLIBS += $(CHAKRA_LD_FLAGS) $(LIBUV_LD_FLAGS)
 
 # Verbosity.
 
