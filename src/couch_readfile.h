@@ -13,10 +13,6 @@
 #ifndef COUCH_READFILE
 #define COUCH_READFILE
 
-#ifndef _CHAKRACORE_H_ 
-typedef void* JsValueRef;
-#endif
-
-JsValueRef couch_readfile(const char* filename);
+size_t slurp_file(const char* file, char** outbuf_p);
 
 #endif

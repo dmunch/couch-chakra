@@ -30,6 +30,29 @@ JsValueRef normalizeFunction(JsValueRef context, JsValueRef jsNormalizeFunction,
 void printException(JsErrorCode error);
 void printProperties(JsValueRef object);
 
+JsValueRef couch_readfile(const char* filename)
+{
+    JsValueRef string;
+    size_t byteslen;
+    char *bytes;
+
+    if((byteslen = slurp_file(filename, &bytes))) {
+        JsCreateString(bytes, byteslen, &string);
+        return string;
+    }
+    return NULL;    
+}
+
+JsValueRef couch_readline(FILE* fp)
+{
+    size_t byteslen;
+    char* bytes = couch_readline_(fp, &byteslen);
+    JsValueRef str;
+    JsCreateString(bytes, byteslen, &str);
+    free(bytes);
+    return str;
+}
+
 #define JS_FUN_DEF(name) JsValueRef name( \
    JsValueRef callee,                     \
    bool isConstructCall,		              \
@@ -84,7 +107,7 @@ JS_FUN_DEF(print)
       continue;
     } 
 
-    char *str = malloc(bufferSize + 1);
+    char *str = (char *) malloc(bufferSize + 1);
     JsCopyString(value, str, bufferSize, &written);
     str[bufferSize] = 0;
     fprintf(stdout, "%s", str);
@@ -420,7 +443,7 @@ int main(int argc, const char* argv[])
         printException(error);
       } 
     }
-   
+    
     free(evalCxContext); 
     JsSetCurrentContext(JS_INVALID_REFERENCE);
     JsDisposeRuntime(runtime);

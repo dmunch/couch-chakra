@@ -16,6 +16,11 @@
 #include <stdio.h>
 #include <stdarg.h>
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 typedef struct {
     int          no_eval;
     int          use_http;
@@ -28,5 +33,9 @@ typedef struct {
 } couch_args;
 
 couch_args* couch_parse_args(int argc, const char* argv[]);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -17,9 +17,15 @@
 #include <stdarg.h>
 #include <string.h>
 
-#ifndef _CHAKRACORE_H_ 
-typedef void* JsValueRef;
+#ifdef __cplusplus
+extern "C"
+{
 #endif
 
-JsValueRef couch_readline(FILE* fp);
+char* couch_readline_(FILE* fp, size_t* byteslen);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif

@@ -40,21 +40,31 @@ LDLIBS += $(CHAKRA_LD_FLAGS)
 c_verbose_0 = @echo " C     " $(?F);
 c_verbose = $(c_verbose_$(V))
 
+cpp_verbose_0 = @echo " CPP   " $(?F);
+cpp_verbose = $(cpp_verbose_$(V))
+
 link_verbose_0 = @echo " LD    " $(@F);
 link_verbose = $(link_verbose_$(V))
 
-SOURCES := $(shell find $(C_SRC_DIR) -type f \( -name "*.c" \))
+SOURCES := $(shell find $(C_SRC_DIR) -type f \( -name "*.c" -o -name "*.cpp" \))
 
 OBJECTS = $(addprefix $(OBJDIR)/, $(addsuffix .o, $(basename $(notdir $(SOURCES)))))
 
 COMPILE_C = $(c_verbose) $(CC) $(CFLAGS) $(CPPFLAGS) -c
+COMPILE_CPP = $(cpp_verbose) $(CXX) $(CXXFLAGS) $(CPPFLAGS) -c
 
 $(C_SRC_OUTPUT): $(OBJDIR)/main.js.h $(OBJECTS)
 	@mkdir -p bin/
 	$(link_verbose) $(CC) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -o $(C_SRC_OUTPUT)
 
 $(OBJDIR)/%.o: $(C_SRC_DIR)/%.c
-	$(COMPILE_C) $(OUTPUT_OPTION) $<
+	$(COMPILE_CPP) $(OUTPUT_OPTION) $<
+
+$(OBJDIR)/%.o: $(C_SRC_DIR)/%.cpp
+	$(COMPILE_CPP) $(OUTPUT_OPTION) $<
+
+#%(OBJDIR)/%.o: $(C_SRC_DIR)/%.cpp
+#	$(COMPILE_CPP) $(OUTPUT_OPTION) $<
 
 $(OBJDIR)/main.js: js/esprima.js js/escodegen.browser.min.js js/normalizeFunction.js 
 	@mkdir -p $(OBJDIR) 

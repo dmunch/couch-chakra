@@ -15,7 +15,6 @@
 #include <stdlib.h>
 #include "couch_readfile.h"
 
-size_t slurp_file(const char* file, char** outbuf_p);
 size_t slurp_file(const char* file, char** outbuf_p)
 {
     FILE* fp;
@@ -61,16 +60,4 @@ size_t slurp_file(const char* file, char** outbuf_p)
     return buflen + 1;
 }
 
-JsValueRef couch_readfile(const char* filename)
-{
-    JsValueRef string;
-    size_t byteslen;
-    char *bytes;
-
-    if((byteslen = slurp_file(filename, &bytes))) {
-        JsCreateString(bytes, byteslen, &string);
-        return string;
-    }
-    return NULL;    
-}
 
