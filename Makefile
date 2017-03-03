@@ -53,29 +53,37 @@ OBJECTS = $(addprefix $(OBJDIR)/, $(addsuffix .o, $(basename $(notdir $(SOURCES)
 COMPILE_C = $(c_verbose) $(CC) $(CFLAGS) $(CPPFLAGS) -c
 COMPILE_CPP = $(cpp_verbose) $(CXX) $(CXXFLAGS) $(CPPFLAGS) -c
 
-$(C_SRC_OUTPUT): $(OBJDIR)/main.js.h $(OBJECTS)
+$(C_SRC_OUTPUT): dist/couch_chakra.js.h $(OBJECTS)
 	@mkdir -p bin/
 	$(link_verbose) $(CC) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -o $(C_SRC_OUTPUT)
 
 $(OBJDIR)/%.o: $(C_SRC_DIR)/%.c
+	@mkdir -p $(OBJDIR) 
 	$(COMPILE_CPP) $(OUTPUT_OPTION) $<
 
 $(OBJDIR)/%.o: $(C_SRC_DIR)/%.cpp
+	@mkdir -p $(OBJDIR) 
 	$(COMPILE_CPP) $(OUTPUT_OPTION) $<
 
 #%(OBJDIR)/%.o: $(C_SRC_DIR)/%.cpp
 #	$(COMPILE_CPP) $(OUTPUT_OPTION) $<
 
-$(OBJDIR)/main.js: js/esprima.js js/escodegen.browser.min.js js/normalizeFunction.js 
-	@mkdir -p $(OBJDIR) 
-	cat $^ > $@
+#$(OBJDIR)/main.js: js/esprima.js js/escodegen.browser.min.js js/normalizeFunction.js 
+#	@mkdir -p $(OBJDIR) 
+#	cat $^ > $@
+dist/couch_chakra.js:
+	npm run compile
 
-$(OBJDIR)/main.js.h: $(OBJDIR)/main.js 
+dist/couch_chakra.js.h: dist/couch_chakra.js 
 	xxd -i $< $@
+
+#$(OBJDIR)/main.js.h: $(OBJDIR)/main.js 
+#	xxd -i $< $@
 
 clean:
 	@rm -f $(C_SRC_OUTPUT) $(OBJECTS)
 	@rm -rf $(OBJDIR) 
+	@rm -rf dist
 
 check: $(OBJDIR)/chai.js
 	./tests/run.sh

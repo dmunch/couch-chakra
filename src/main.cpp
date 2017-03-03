@@ -21,7 +21,7 @@
 #include "couch_readline.h"
 #include "couch_readfile.h"
 
-#include "../obj/main.js.h"
+#include "../dist/couch_chakra.js.h"
 
 void beforeCollectFunWithContextCallback(JsRef funInContext, void* callbackState);
 
@@ -416,16 +416,22 @@ int main(int argc, const char* argv[])
       JsValueRef mainHref;
       JsValueRef mainRes;
 
-      JsCreateString((const char*) obj_main_js, obj_main_js_len, &mainSrc);
-      JsCreateString("main.js", strlen("main.js"), &mainHref);
+      JsCreateString((const char*) dist_couch_chakra_js, dist_couch_chakra_js_len, &mainSrc);
+      JsCreateString("couch_chakra.js", strlen("couch_chakra.js"), &mainHref);
       error = JsRun(mainSrc, JS_SOURCE_CONTEXT_NONE, mainHref, JsParseScriptAttributeNone, &mainRes);
       if(error != JsNoError) {
         printException(error);
       }
      
+      JsValueRef moduleId; 
+      JsCreatePropertyId("couch_chakra", strlen("couch_chakra"), &moduleId);
+      
       JsValueRef funId; 
       JsCreatePropertyId("normalizeFunction", strlen("normalizeFunction"), &funId);
-      JsGetProperty(globalObject, funId, &evalCxContext->normalizeFunction);
+      
+      JsValueRef module;
+      JsGetProperty(globalObject, moduleId, &module);
+      JsGetProperty(module, funId, &evalCxContext->normalizeFunction);
     }
 
     for(int i = 0 ; args->scripts[i] ; i++) {

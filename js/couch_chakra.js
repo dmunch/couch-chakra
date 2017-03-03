@@ -1,3 +1,7 @@
+let escodegen = require("escodegen");
+let esprima = require("esprima-couch-chakra");
+let Ernie = require("ernie.js");
+
 function normalizeFunction(fun, fun1) {
 	var ast = esprima.parse(fun);
 
@@ -24,4 +28,9 @@ function normalizeFunction(fun, fun1) {
 
   //re-generate the rewritten AST
 	return escodegen.generate(ast);
+}
+
+module.exports = {
+  normalizeFunction,
+  Ernie
 }
