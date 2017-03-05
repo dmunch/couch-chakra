@@ -320,6 +320,50 @@ JS_FUN_DEF(evalcx)
   return funInContext;
 }
 
+
+JS_FUN_DEF(TextEncoder_encode)
+{
+  size_t buffSize;
+  size_t written;
+  JsValueRef arrayBuffer;
+  BYTE *arrayBufferStorage;
+  unsigned int arrayBufferSize;
+
+  JsCopyString(argv[1], NULL, 0, &buffSize);
+
+  JsCreateArrayBuffer(buffSize, &arrayBuffer);
+  JsGetArrayBufferStorage(arrayBuffer, &arrayBufferStorage, &arrayBufferSize);
+  JsCopyString(argv[1], (char *) arrayBufferStorage, arrayBufferSize, &written);
+
+  JsValueRef typedArray;
+  JsCreateTypedArray(JsArrayTypeUint8, arrayBuffer, 0, written, &typedArray);
+  return typedArray;
+}
+
+JS_FUN_DEF(TextDecoder_decode)
+{
+  JsValueRef arrayBuffer;
+  BYTE *arrayBufferStorage;
+  unsigned int arrayBufferSize;
+  JsValueRef string;
+
+  JsGetArrayBufferStorage(argv[1], &arrayBufferStorage, &arrayBufferSize);
+  JsCreateString((const char *) arrayBufferStorage, arrayBufferSize, &string);
+  
+  return string;
+}
+
+JS_FUN_DEF(TextEncoderConstructor) 
+{
+  create_function(argv[0], "encode", TextEncoder_encode, NULL); 
+  return argv[0];
+}
+JS_FUN_DEF(TextDecoderConstructor) 
+{
+  create_function(argv[0], "decode", TextDecoder_decode, NULL);
+  return argv[0];
+}
+
 void create_function(JsValueRef object, char* name, JsNativeFunction fun, void* callbackState)
 {
   JsValueRef funHandle;
@@ -434,6 +478,8 @@ int main(int argc, const char* argv[])
     create_function(globalObject, "gc", gc, runtime);
     create_function(globalObject, "exit", quit, NULL);
     create_function(globalObject, "evalcx", evalcx, evalCxContext);
+    create_function(globalObject, "TextEncoder", TextEncoderConstructor, NULL);
+    create_function(globalObject, "TextDecoder", TextDecoderConstructor, NULL);
 
     if(evalCxContext->args->use_legacy) {
       JsValueRef mainSrc;
