@@ -65,7 +65,7 @@ JS_FUN_DEF(print)
   for(int a = 0; a < argc; a++){
     JsValueRef value = argv[a];
     size_t written;
-    int stringLength;
+    size_t bufferSize;
    
 
     if(value == JS_INVALID_REFERENCE) {
@@ -79,14 +79,14 @@ JS_FUN_DEF(print)
       continue;
     }
 
-    JsGetStringLength(value, &stringLength);
-    if(stringLength < 1) {
+    JsCopyString(value, NULL, 0, &bufferSize);
+    if(bufferSize < 1) {
       continue;
     } 
 
-    char *str = malloc(stringLength + 1);
-    JsCopyString(value, str, stringLength, &written);
-    str[stringLength] = 0;
+    char *str = malloc(bufferSize + 1);
+    JsCopyString(value, str, bufferSize, &written);
+    str[bufferSize] = 0;
     fprintf(stdout, "%s", str);
     free(str);
   }
