@@ -80,16 +80,21 @@ JS_FUN_DEF(readline)
   return line;
 }
 
+struct PrintOptions {
+  inline PrintOptions(FILE* f, bool nl) : file(f), newLine(nl) {}
+  
+  FILE* file;
+  bool newLine;
+};
+
 JS_FUN_DEF(print)
 {
+  auto options = (PrintOptions*) callbackState;
+  
   JsValueRef trueValue;
   JsGetTrueValue(&trueValue);
-  
   for(int a = 0; a < argc; a++){
     JsValueRef value = argv[a];
-    size_t written;
-    size_t bufferSize;
-   
 
     if(value == JS_INVALID_REFERENCE) {
       return trueValue;
@@ -101,7 +106,21 @@ JS_FUN_DEF(print)
     if(type == JsUndefined) {
       continue;
     }
+    
+    if(type == JsTypedArray) {
+      unsigned char* buffer;
+      unsigned int bufferLength;
+      JsTypedArrayType typedArrayType;
+      int elementSize;
 
+      JsGetTypedArrayStorage(value, &buffer, &bufferLength, &typedArrayType, &elementSize);
+      fwrite(buffer, elementSize, bufferLength, options->file); 
+      fflush(options->file);
+      return trueValue;
+    }
+
+    size_t written;
+    size_t bufferSize;
     JsCopyString(value, NULL, 0, &bufferSize);
     if(bufferSize < 1) {
       continue;
@@ -110,11 +129,15 @@ JS_FUN_DEF(print)
     char *str = (char *) malloc(bufferSize + 1);
     JsCopyString(value, str, bufferSize, &written);
     str[bufferSize] = 0;
-    fprintf(stdout, "%s", str);
+    fprintf(options->file, "%s", str);
+    
     free(str);
   }
-  fputc('\n', stdout);
-  fflush(stdout);
+
+  if(options->newLine) {
+    fputc('\n', options->file);
+    fflush(options->file);
+  }
 
   return trueValue;
 }
@@ -241,7 +264,7 @@ JS_FUN_DEF(evalcx)
      JsSetCurrentContext(context);
      JsGetGlobalObject(&sandbox);
      //curently only for debugging purposes  
-     create_function(sandbox, "print", print, NULL);
+     create_function(sandbox, "print", print, new PrintOptions(stdout, false));
      JsSetCurrentContext(oldContext);
   } else {
     JsGetContextOfObject(sandbox, &context);
@@ -405,7 +428,8 @@ int main(int argc, const char* argv[])
     evalCxContext->runtime = runtime;
 
     create_function(globalObject, "readline", readline, NULL);
-    create_function(globalObject, "print", print, NULL);
+    create_function(globalObject, "print", print, new PrintOptions(stdout, false));
+    create_function(globalObject, "print_e", print, new PrintOptions(stderr, true));
     create_function(globalObject, "seal", seal, NULL);
     create_function(globalObject, "gc", gc, runtime);
     create_function(globalObject, "exit", quit, NULL);
