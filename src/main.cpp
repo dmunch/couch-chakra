@@ -722,25 +722,40 @@ JS_FUN_DEF(write_async) {
   return create_promise(funHandle);
 }
 
-
-std::queue<JsValueRef> taskQueue;  
+std::queue<JsValueRef> taskQueue; 
 void promiseContinuationCallback(JsValueRef task, void *callbackState)
 {
-    // Save promise task in taskQueue.
-    taskQueue.push(task);
-    uv_async_send(&async);
+  JsContextRef context;
+
+  // need to add a referenc to that task, otherwise
+  // the garbage collector will collect it
+  JsAddRef(task, NULL);
+
+  taskQueue.push(task);
+  uv_async_send(&async);
 }
 
 static void async_callback(uv_async_t* watcher) {
-  JsValueRef global;
   JsValueRef result;
-  JsGetGlobalObject(&global);
-
+  JsValueRef global;
+  
   // Execute promise tasks stored in taskQueue
-  while (!taskQueue.empty()) {
+  if(!taskQueue.empty()) {
     JsValueRef task = taskQueue.front();
     taskQueue.pop();
-    JsCallFunction(task, &global, 1, &result);
+   
+    JsGetGlobalObject(&global); 
+    JsValueRef args[] = {global};
+    JsCallFunction(task, args, 1, &result);
+
+    // we can now savely release the task
+    JsRelease(task, NULL);
+  }
+
+  // If there's still tasks stored in taskQueue
+  // then we reschedule a callback to ourselfs
+  if(!taskQueue.empty()) {
+    uv_async_send(&async);
   }
 }
 
