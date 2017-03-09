@@ -417,6 +417,12 @@ JS_FUN_DEF(read)
 }
 
 
+JS_FUN_DEF(exit_uv) 
+{
+  uv_stop((uv_loop_t*) callbackState);
+  return argv[0];
+}
+
 void create_function(JsValueRef object, char* name, JsNativeFunction fun, void* callbackState)
 {
   JsValueRef funHandle;
@@ -546,6 +552,7 @@ int main(int argc, const char* argv[])
     uv_loop_t* loop; 
     if(args->use_evented) {
       loop = uv_chakra_init(globalObject); 
+      create_function(globalObject, "exit_uv", exit_uv, loop);
     }
 
     if(evalCxContext->args->use_legacy) {
