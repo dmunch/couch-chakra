@@ -633,14 +633,21 @@ JsValueRef create_promise(JsValueRef callback)
   return promise;
 }
 
+typedef struct {
+  JsValueRef resolve;
+  JsValueRef reject;
+} read_req_t;
+
 JS_FUN_DEF(read_async_callback) {
-  JsValueRef resolve = argv[1];
-  JsValueRef reject = argv[2];
+  auto read_req = new read_req_t();
+  read_req->resolve= argv[1];
+  read_req->reject = argv[2];
 
   uv_stream_t* in_stream = (uv_stream_t*) callbackState;
-  in_stream->data = resolve;  
+  in_stream->data = read_req;  
   uv_read_start(in_stream, alloc_buffer, read_stdin);
 }
+
 
 JS_FUN_DEF(read_async)
 {
@@ -792,8 +799,15 @@ void externalArrayBufferFinalizer(void *data) {
 }
 
 void read_stdin(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
+  auto read_req = (read_req_t*) stream->data;
+  
   if (nread < 0){
     if (nread == UV_EOF){
+        JsValueRef undefined;
+        JsValueRef result; 
+        JsGetUndefinedValue(&undefined);
+        JsValueRef argv[] = {undefined, undefined};
+        JsCallFunction(read_req->reject, argv, 2, &result);
         //uv_close((uv_handle_t *)&stdin_pipe, NULL);
         //uv_close((uv_handle_t *)&stdout_pipe, NULL);
     }
@@ -807,7 +821,9 @@ void read_stdin(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
     JsErrorCode error = JsCreateExternalArrayBuffer(buf->base, nread, externalArrayBufferFinalizer, buf->base, &arrayBuffer);
 
     JsValueRef argv[] = {undefined, arrayBuffer};
-    JsValueRef callbackFunction = (JsValueRef) stream->data;
-    JsCallFunction(callbackFunction, argv, 2, &result);
+    JsCallFunction(read_req->resolve, argv, 2, &result);
   }
+
+  stream->data = NULL;
+  delete read_req;
 }
