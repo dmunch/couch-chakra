@@ -364,6 +364,57 @@ JS_FUN_DEF(TextDecoderConstructor)
   return argv[0];
 }
 
+JS_FUN_DEF(write)
+{
+  JsValueType type;
+  JsGetValueType(argv[1], &type);
+    
+  if(type != JsTypedArray) {
+    JsValueRef falseValue;
+    JsGetFalseValue(&falseValue);
+    return falseValue;
+  }
+    
+  unsigned char* buffer;
+  unsigned int bufferLength;
+  JsTypedArrayType typedArrayType;
+  int elementSize;
+
+  JsGetTypedArrayStorage(argv[1], &buffer, &bufferLength, &typedArrayType, &elementSize);
+  fwrite(buffer, elementSize, bufferLength, stdout); 
+  fflush(stdout);
+  
+  JsValueRef trueValue;
+  JsGetTrueValue(&trueValue);
+  return trueValue;
+}
+
+void externalArrayBufferFinalizer(void *data) {
+  if(data) {
+    free(data);
+  } 
+}
+
+JS_FUN_DEF(read)
+{
+  int size;
+  JsNumberToInt(argv[1], &size);
+    
+  if(size <= 0) {
+    JsValueRef falseValue;
+    JsGetFalseValue(&falseValue);
+    return falseValue;
+  }
+  
+  auto buffer = new char[size];
+  size_t actuallyRead = fread(buffer, 1, size, stdin);
+ 
+  JsValueRef arrayBuffer;
+  JsCreateExternalArrayBuffer(buffer, actuallyRead, externalArrayBufferFinalizer, buffer, &arrayBuffer);
+  return arrayBuffer;
+}
+
+
 void create_function(JsValueRef object, char* name, JsNativeFunction fun, void* callbackState)
 {
   JsValueRef funHandle;
@@ -480,6 +531,8 @@ int main(int argc, const char* argv[])
     create_function(globalObject, "evalcx", evalcx, evalCxContext);
     create_function(globalObject, "TextEncoder", TextEncoderConstructor, NULL);
     create_function(globalObject, "TextDecoder", TextDecoderConstructor, NULL);
+    create_function(globalObject, "read", read, NULL);
+    create_function(globalObject, "write", write, NULL);
 
     if(evalCxContext->args->use_legacy) {
       JsValueRef mainSrc;
