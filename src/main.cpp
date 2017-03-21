@@ -328,7 +328,6 @@ JS_FUN_DEF(TextEncoder_encode)
 
 JS_FUN_DEF(TextDecoder_decode)
 {
-  JsValueRef arrayBuffer;
   BYTE *arrayBufferStorage;
   unsigned int arrayBufferSize;
   JsValueRef string;
@@ -407,7 +406,7 @@ JS_FUN_DEF(exit_uv)
   return argv[0];
 }
 
-void create_function(JsValueRef object, char* name, JsNativeFunction fun, void* callbackState)
+void create_function(JsValueRef object, const char* name, JsNativeFunction fun, void* callbackState)
 {
   JsValueRef funHandle;
   JsCreateFunction(fun, callbackState, &funHandle);

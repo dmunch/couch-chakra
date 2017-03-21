@@ -23,6 +23,6 @@
    unsigned short argc,                   \
    void *callbackState)
 
-void create_function(JsValueRef object, char* name, JsNativeFunction fun, void* callbackState);
+void create_function(JsValueRef object, const char* name, JsNativeFunction fun, void* callbackState);
 
 #endif

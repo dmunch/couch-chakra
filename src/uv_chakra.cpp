@@ -56,6 +56,10 @@ JS_FUN_DEF(read_async_callback) {
   uv_stream_t* in_stream = (uv_stream_t*) callbackState;
   in_stream->data = read_req;  
   uv_read_start(in_stream, alloc_buffer, read_stdin);
+  
+  JsValueRef trueValue;
+  JsGetTrueValue(&trueValue);
+  return trueValue;
 }
 
 
@@ -142,8 +146,6 @@ JS_FUN_DEF(write_async) {
 std::queue<JsValueRef> taskQueue; 
 void promiseContinuationCallback(JsValueRef task, void *callbackState)
 {
-  JsContextRef context;
-
   // need to add a referenc to that task, otherwise
   // the garbage collector will collect it
   JsAddRef(task, NULL);
@@ -229,7 +231,7 @@ void read_stdin(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
 
     JsGetUndefinedValue(&undefined);
 
-    JsErrorCode error = JsCreateExternalArrayBuffer(buf->base, nread, bufferFinalizer, buf->base, &arrayBuffer);
+    JsCreateExternalArrayBuffer(buf->base, nread, bufferFinalizer, buf->base, &arrayBuffer);
 
     JsValueRef argv[] = {undefined, arrayBuffer};
     JsCallFunction(read_req->resolve, argv, 2, &result);
