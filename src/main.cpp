@@ -21,6 +21,7 @@
 #include "couch_args.h"
 #include "couch_readline.h"
 #include "couch_readfile.h"
+#include "chakra_console.h"
 
 #include "../dist/couch_chakra.js.h"
 
@@ -517,6 +518,8 @@ int main(int argc, const char* argv[])
     create_function(globalObject, "TextDecoder", TextDecoderConstructor, NULL);
     create_function(globalObject, "read", read, NULL);
     create_function(globalObject, "write", write, NULL);
+    
+    chakra_console_init(globalObject);
 
     if(evalCxContext->args->use_legacy) {
       JsValueRef mainSrc;
