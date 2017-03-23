@@ -22,6 +22,7 @@
 #include "couch_readline.h"
 #include "couch_readfile.h"
 #include "uv_chakra.h"
+#include "chakra_console.h"
 
 #include "../dist/couch_chakra.js.h"
 
@@ -526,6 +527,8 @@ int main(int argc, const char* argv[])
     create_function(globalObject, "read", read, NULL);
     create_function(globalObject, "write", write, NULL);
     
+    chakra_console_init(globalObject);
+
     uv_loop_t* loop; 
     if(args->use_evented) {
       loop = uv_chakra_init(globalObject); 
