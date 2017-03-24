@@ -506,6 +506,7 @@ void printException(JsErrorCode error)
 }
 
 
+uv_loop_t* loop; 
 uv_loop_t* uv_chakra_init(JsValueRef globalObject);
 void uv_chakra_run(uv_loop_t* loop);
 void promiseContinuationCallback(JsValueRef task, void *callbackState);
@@ -616,7 +617,8 @@ int main(int argc, const char* argv[])
 void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf);
 void read_stdin(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf);
 
-uv_pipe_t stdin_pipe;
+//uv_pipe_t stdin_pipe;
+uv_tty_t stdin_pipe;
 uv_pipe_t stdout_pipe;
 uv_async_t async;
 
@@ -650,7 +652,10 @@ JS_FUN_DEF(read_async_callback) {
   read_req->resolve= argv[1];
   read_req->reject = argv[2];
 
-  uv_stream_t* in_stream = (uv_stream_t*) callbackState;
+
+  //uv_stream_t* in_stream = (uv_stream_t*) callbackState;
+  
+  uv_stream_t* in_stream = (uv_stream_t*) &stdin_pipe;
   in_stream->data = read_req;  
   uv_read_start(in_stream, alloc_buffer, read_stdin);
 }
@@ -779,11 +784,13 @@ uv_loop_t* uv_chakra_init(JsValueRef globalObject)
 
   uv_async_init(loop, &async, async_callback);
 
-  uv_pipe_init(loop, &stdin_pipe, 0);
-  uv_pipe_open(&stdin_pipe, 0);
+  //uv_pipe_init(loop, &stdin_pipe, 0);
+  //uv_pipe_open(&stdin_pipe, 0);
+  uv_tty_init(loop, &stdin_pipe, 0, 1);
+  uv_tty_set_mode(&stdin_pipe, UV_TTY_MODE_RAW);
   
-  uv_pipe_init(loop, &stdout_pipe, 0);
-  uv_pipe_open(&stdout_pipe, 1);
+  //uv_pipe_init(loop, &stdout_pipe, 0);
+  //uv_pipe_open(&stdout_pipe, 1);
 
   create_function(globalObject, "write_async", write_async, &stdout_pipe);
   create_function(globalObject, "read_async", read_async, &stdin_pipe);
@@ -814,9 +821,18 @@ void read_stdin(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
         JsValueRef result; 
         JsGetUndefinedValue(&undefined);
         JsValueRef argv[] = {undefined, undefined};
-        JsCallFunction(read_req->reject, argv, 2, &result);
+        //JsCallFunction(read_req->reject, argv, 2, &result);
+	
+
+	JsCallFunction(read_req->resolve, argv, 2, &result);
+
         //uv_close((uv_handle_t *)&stdin_pipe, NULL);
-        //uv_close((uv_handle_t *)&stdout_pipe, NULL);
+	uv_tty_init(loop, &stdin_pipe, 0, 1);
+	uv_tty_set_mode(&stdin_pipe, UV_TTY_MODE_RAW);
+	//uv_pipe_init(loop, &stdin_pipe, 0);
+	//uv_pipe_open(&stdin_pipe, 0);
+
+	//uv_close((uv_handle_t *)&stdout_pipe, NULL);
     }
   } else if (nread > 0) {
     JsValueRef arrayBuffer;

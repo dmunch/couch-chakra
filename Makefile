@@ -1,7 +1,7 @@
 CHAKRA_INCLUDE_DIR ?= /Users/jack/Projects/ChakraCore/lib/Jsrt/ 
 CHAKRA_LD_FLAGS ?= -L/Users/jack/Projects/ChakraCore/BuildLinux/Test/bin/ChakraCore/ -lChakraCore 
 
-LIBUV_INCLUDE_DIR = /usr/local/Cellar/libuv/1.11.0/include
+LIBUV_INCLUDE_DIR = -I /usr/local/Cellar/libuv/1.11.0/include
 LIBUV_LD_FLAGS ?= -L/usr/local/Cellar/libuv/1.11.0/lib/ -luv
 
 CURDIR := $(shell pwd)
