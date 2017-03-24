@@ -9,7 +9,8 @@
   "dependencies": {
     "ernie.js": "git+https://github.com/dmunch/ernie.js.git",
     "escodegen": "^1.8.1",
-    "esprima-couch-chakra": "^4.0.0-dev-1"
+    "esprima-couch-chakra": "^4.0.0-dev-1",
+    "jasmine-core": "^2.5.2"
   },
   "devDependencies": {
     "json-loader": "^0.5.4",

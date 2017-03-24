@@ -48,6 +48,7 @@ static const char USAGE_TEMPLATE[] =
     "  -V          display version information and exit\n"
     "  -L          enable legacy mode, allows anonymous function statements (see COUCHDB-1397)\n"
     "  -e          use evented IO\n"
+    "  -j          use Jasmine and run tests\n"
     "  -d          debug mode, shows error information encountered during running [FILE]\n"
     "  -H          enable %s cURL bindings (only avaiable\n"
     "              if package was built with cURL available)\n"

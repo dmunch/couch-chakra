@@ -44,6 +44,8 @@ couch_parse_args(int argc, const char* argv[])
             args->use_legacy = 1;
         } else if(strcmp("-e", argv[i]) == 0) {
             args->use_evented = 1;
+        } else if(strcmp("-j", argv[i]) == 0) {
+            args->use_jasmine = 1;
         } else if(strcmp("-d", argv[i]) == 0) {
             args->debug= 1;
         } else if(strcmp("-S", argv[i]) == 0) {
