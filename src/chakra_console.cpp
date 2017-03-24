@@ -68,7 +68,7 @@ JS_FUN_DEF(log)
   
   JsValueRef trueValue;
   JsGetTrueValue(&trueValue);
-  for(int a = 0; a < argc; a++){
+  for(int a = 1; a < argc; a++){
     JsValueRef value = argv[a];
 
     if(value == JS_INVALID_REFERENCE) {
@@ -100,10 +100,11 @@ JS_FUN_DEF(log)
 }
 
 typedef std::chrono::high_resolution_clock hr_clock;
+typedef std::chrono::milliseconds milliseconds;
 std::unordered_map<std::string, hr_clock::time_point> timerLabels;
 
 JS_FUN_DEF(time) {
-  JsValueRef label = argv[0];
+  JsValueRef label = argv[1];
 
   const char* str = to_str(label);
   timerLabels[std::string(str)] = hr_clock::now();
@@ -115,12 +116,12 @@ JS_FUN_DEF(time) {
 }
 
 JS_FUN_DEF(timeEnd) {
-  JsValueRef label = argv[0];
+  JsValueRef label = argv[1];
 
   const char* str = to_str(label);
   auto time_point = timerLabels[std::string(str)];
   
-  auto elapsed = hr_clock::now() - time_point; 
+  auto elapsed = std::chrono::duration_cast<milliseconds>(hr_clock::now() - time_point); 
   fprintf(stderr, "%s elapsed: %lld ms\n", str, elapsed.count());
   free((void*)str);
   
