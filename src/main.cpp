@@ -428,6 +428,7 @@ void printProperties(JsValueRef object)
   unsigned int i = 0;
   bool hasValue;
   JsValueRef index;
+  auto printProps =  PrintOptions(stderr, true);
 
   do 
   {
@@ -441,12 +442,8 @@ void printProperties(JsValueRef object)
     JsValueRef propName;
     JsGetIndexedProperty(propertyNames, index, &propName);
 
-    //JsPropertyIdRef propId;
-    //JsValueRef propValue;
-    //JsCreatePropertyId((char*) binary.data, binary.size, &propId);
-    //JsGetProperty(value, propId, &propValue);
-    print(NULL, false, &propName, 1, NULL);
-    } while(error == JsNoError && hasValue);
+    print(NULL, false, &propName, 1, &printProps);
+  } while(error == JsNoError && hasValue);
 }
 
 void printException(JsErrorCode error)
@@ -484,7 +481,9 @@ void printException(JsErrorCode error)
   fprintf(stderr, "has exception at \n");
   fprintf(stderr, "line %d\n", line);
   fprintf(stderr, "column %d\n", column);
-  print(NULL, false, &strException, 1, NULL);
+
+  auto printProps =  PrintOptions(stderr, true);
+  print(NULL, false, &strException, 1, &printProps);
   fprintf(stderr, "list of properties on error object:\n");
   printProperties(exception); 
 }
