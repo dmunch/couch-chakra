@@ -566,11 +566,10 @@ int main(int argc, const char* argv[])
       printException(error);
     }
 
-    JsValueRef moduleId; 
-    JsCreatePropertyId("couch_chakra", strlen("couch_chakra"), &moduleId);
-      
     if(evalCxContext->args->use_legacy) {
       JsValueRef funId; 
+      JsValueRef moduleId; 
+      JsCreatePropertyId("couch_chakra", strlen("couch_chakra"), &moduleId);
       JsCreatePropertyId("normalizeFunction", strlen("normalizeFunction"), &funId);
       
       JsValueRef module;
@@ -600,7 +599,7 @@ int main(int argc, const char* argv[])
     }
     
     if(evalCxContext->args->use_jasmine) {
-      run_script("runJasmine", "couch_chakra.initJasmine(env);");
+      run_script("runJasmine", "couch_chakra.runJasmine(env);");
     }
 
     if(args->use_evented) {
