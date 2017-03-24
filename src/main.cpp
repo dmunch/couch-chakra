@@ -25,6 +25,21 @@
 
 #include "../dist/couch_chakra.js.h"
 
+/* Makes the given file descriptor non-blocking.
+ *  * Returns 1 on success, 0 on failure.
+ *  */
+int make_blocking(int fd)
+{
+	int flags;
+
+	flags = fcntl(fd, F_GETFL, 0);
+	if(flags == -1) /* Failed? */
+		return 0;
+	/* Clear the blocking flag. */
+	flags &= ~O_NONBLOCK;
+	return fcntl(fd, F_SETFL, flags) != -1;
+}
+
 void beforeCollectFunWithContextCallback(JsRef funInContext, void* callbackState);
 
 void create_function(JsValueRef object, char* name, JsNativeFunction fun, void* callbackState);
@@ -338,7 +353,7 @@ JS_FUN_DEF(TextEncoder_encode)
   JsCopyString(argv[1], (char *) arrayBufferStorage, arrayBufferSize, &written);
 
   JsValueRef typedArray;
-  JsCreateTypedArray(JsArrayTypeUint8, arrayBuffer, 0, written, &typedArray);
+  JsCreateTypedArray(JsArrayTypeUint8, arrayBuffer, 0, buffSize, &typedArray);
   return typedArray;
 }
 
@@ -347,11 +362,18 @@ JS_FUN_DEF(TextDecoder_decode)
   JsValueRef arrayBuffer;
   BYTE *arrayBufferStorage;
   unsigned int arrayBufferSize;
-  JsValueRef string;
 
-  JsGetArrayBufferStorage(argv[1], &arrayBufferStorage, &arrayBufferSize);
-  JsCreateString((const char *) arrayBufferStorage, arrayBufferSize, &string);
+  //JsGetArrayBufferStorage(argv[1], &arrayBufferStorage, &arrayBufferSize);
+  JsGetDataViewStorage(argv[1], &arrayBufferStorage, &arrayBufferSize);
   
+  if(arrayBufferSize == 0) {
+    JsValueRef falseValue;
+    JsGetFalseValue(&falseValue);
+    return falseValue;
+  }
+  
+  JsValueRef string;
+  JsCreateString((const char *) arrayBufferStorage, arrayBufferSize, &string);
   return string;
 }
 
@@ -392,10 +414,13 @@ JS_FUN_DEF(write)
 }
 
 void externalArrayBufferFinalizer(void *data) {
-  if(data) {
-    free(data);
-  } 
+/*	if(data) {
+		free(data);
+	}
+	*/
 }
+
+char megaBuffer[1048576];
 
 JS_FUN_DEF(read)
 {
@@ -407,10 +432,19 @@ JS_FUN_DEF(read)
     JsGetFalseValue(&falseValue);
     return falseValue;
   }
-  
-  auto buffer = new char[size];
-  size_t actuallyRead = fread(buffer, 1, size, stdin);
  
+//  char* buffer = (char*) malloc(size); 
+  char* buffer = megaBuffer;
+  size_t actuallyRead = fread(buffer, 1, size, stdin);
+
+  if(actuallyRead == 0) {
+    // We handle error here
+	  if (ferror (stdin))
+	  {
+		  fprintf (stderr, "We encountered an error!%d", 1);
+		  perror ("Error message");
+	  }
+  }
   JsValueRef arrayBuffer;
   JsCreateExternalArrayBuffer(buffer, actuallyRead, externalArrayBufferFinalizer, buffer, &arrayBuffer);
   return arrayBuffer;
@@ -552,22 +586,26 @@ int main(int argc, const char* argv[])
     
     uv_loop_t* loop; 
     if(args->use_evented) {
+      fprintf(stderr, "initialize event loop %d", 1);    
       loop = uv_chakra_init(globalObject); 
       create_function(globalObject, "exit_uv", exit_uv, loop);
+    } else {
+      fprintf(stderr, "set sdtio to blocking %d", 1);    
+    	//make_blocking(0);
     }
 
-    if(evalCxContext->args->use_legacy) {
-      JsValueRef mainSrc;
-      JsValueRef mainHref;
-      JsValueRef mainRes;
+    JsValueRef mainSrc;
+    JsValueRef mainHref;
+    JsValueRef mainRes;
 
-      JsCreateString((const char*) dist_couch_chakra_js, dist_couch_chakra_js_len, &mainSrc);
-      JsCreateString("couch_chakra.js", strlen("couch_chakra.js"), &mainHref);
-      error = JsRun(mainSrc, JS_SOURCE_CONTEXT_NONE, mainHref, JsParseScriptAttributeNone, &mainRes);
-      if(error != JsNoError) {
-        printException(error);
-      }
+    JsCreateString((const char*) dist_couch_chakra_js, dist_couch_chakra_js_len, &mainSrc);
+    JsCreateString("couch_chakra.js", strlen("couch_chakra.js"), &mainHref);
+    error = JsRun(mainSrc, JS_SOURCE_CONTEXT_NONE, mainHref, JsParseScriptAttributeNone, &mainRes);
+    if(error != JsNoError) {
+	    printException(error);
+    }
      
+    if(evalCxContext->args->use_legacy) {
       JsValueRef moduleId; 
       JsCreatePropertyId("couch_chakra", strlen("couch_chakra"), &moduleId);
       
@@ -638,7 +676,7 @@ JsValueRef create_promise(JsValueRef callback)
   
   JsValueRef args[] = { undefined, callback };
   JsConstructObject(promiseFunction, args, 2, &promise);
-
+  JsAddRef(promise, NULL);
   return promise;
 }
 
@@ -652,6 +690,8 @@ JS_FUN_DEF(read_async_callback) {
   read_req->resolve= argv[1];
   read_req->reject = argv[2];
 
+  JsAddRef(read_req->resolve, NULL);
+  JsAddRef(read_req->reject, NULL);
 
   //uv_stream_t* in_stream = (uv_stream_t*) callbackState;
   
@@ -749,7 +789,6 @@ void promiseContinuationCallback(JsValueRef task, void *callbackState)
   // need to add a referenc to that task, otherwise
   // the garbage collector will collect it
   JsAddRef(task, NULL);
-
   taskQueue.push(task);
   uv_async_send(&async);
 }
@@ -806,11 +845,13 @@ void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
   *buf = uv_buf_init((char*) malloc(suggested_size), suggested_size);
 }
 
+/*
 void externalArrayBufferFinalizer(void *data) {
   if(data) {
     free(data);
   } 
 }
+*/
 
 void read_stdin(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
   auto read_req = (read_req_t*) stream->data;
@@ -825,7 +866,7 @@ void read_stdin(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
 	
 
 	JsCallFunction(read_req->resolve, argv, 2, &result);
-
+	fprintf(stderr, "reset connnection %d", 1);
         //uv_close((uv_handle_t *)&stdin_pipe, NULL);
 	uv_tty_init(loop, &stdin_pipe, 0, 1);
 	uv_tty_set_mode(&stdin_pipe, UV_TTY_MODE_RAW);
@@ -834,7 +875,10 @@ void read_stdin(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
 
 	//uv_close((uv_handle_t *)&stdout_pipe, NULL);
     }
-  } else if (nread > 0) {
+    else {
+     fprintf(stderr, "bizarre read %d", nread);
+    }
+  } else if (nread >= 0) {
     JsValueRef arrayBuffer;
     JsValueRef undefined;
     JsValueRef result; 
@@ -843,10 +887,22 @@ void read_stdin(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
 
     JsErrorCode error = JsCreateExternalArrayBuffer(buf->base, nread, externalArrayBufferFinalizer, buf->base, &arrayBuffer);
 
+    //fprintf(stderr, "read %d, %d", nread, error);
     JsValueRef argv[] = {undefined, arrayBuffer};
-    JsCallFunction(read_req->resolve, argv, 2, &result);
+    //fprintf(stderr, "about to call resolve %d", error);
+    if(read_req) {
+	    error = JsCallFunction(read_req->resolve, argv, 2, &result);
+    } else {
+	    fprintf(stderr, "read_req is null %d", error);
+    }
+   // fprintf(stderr, "called resolve %d\n", error);
+  } else if (nread == 0) {
+     fprintf(stderr, "nul read %d", 1);
   }
 
+  uv_read_stop(stream);
+  JsRelease(read_req->resolve, NULL);
+  JsRelease(read_req->reject, NULL);
   stream->data = NULL;
   delete read_req;
 }
