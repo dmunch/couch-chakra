@@ -26,6 +26,7 @@ typedef struct {
     int          use_http;
     int          use_test_funs;
     int          use_legacy;
+    int          use_jasmine;
     int          debug;
     int          stack_size;
     const char** scripts;

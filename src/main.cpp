@@ -482,6 +482,26 @@ void printException(JsErrorCode error)
   printProperties(exception); 
 }
 
+
+JsValueRef run_script(const char *name, const char* src) {
+  JsValueRef script;
+  JsValueRef result;
+  JsValueRef sourceHref;
+  JsErrorCode error;
+  
+  JsCreateString(src, strlen(src), &script);
+  JsCreateString(name, strlen(name), &sourceHref);
+  
+  error = JsRun(script, JS_SOURCE_CONTEXT_NONE, sourceHref, JsParseScriptAttributeNone, &result);
+
+  if(error != JsNoError) {
+    fprintf(stderr, "Error running %s: %x", name, error);
+    printException(error);
+  }
+
+ return result; 
+}
+
 int main(int argc, const char* argv[])
 {
     JsRuntimeHandle runtime;
@@ -521,27 +541,31 @@ int main(int argc, const char* argv[])
     
     chakra_console_init(globalObject);
 
-    if(evalCxContext->args->use_legacy) {
-      JsValueRef mainSrc;
-      JsValueRef mainHref;
-      JsValueRef mainRes;
+    JsValueRef mainSrc;
+    JsValueRef mainHref;
+    JsValueRef mainRes;
 
-      JsCreateString((const char*) dist_couch_chakra_js, dist_couch_chakra_js_len, &mainSrc);
-      JsCreateString("couch_chakra.js", strlen("couch_chakra.js"), &mainHref);
-      error = JsRun(mainSrc, JS_SOURCE_CONTEXT_NONE, mainHref, JsParseScriptAttributeNone, &mainRes);
-      if(error != JsNoError) {
-        printException(error);
-      }
-     
+    JsCreateString((const char*) dist_couch_chakra_js, dist_couch_chakra_js_len, &mainSrc);
+    JsCreateString("couch_chakra.js", strlen("couch_chakra.js"), &mainHref);
+    error = JsRun(mainSrc, JS_SOURCE_CONTEXT_NONE, mainHref, JsParseScriptAttributeNone, &mainRes);
+    if(error != JsNoError) {
+      fprintf(stderr, "error loading couch_chakra.js %d", error);
+      printException(error);
+    }
+
+    if(evalCxContext->args->use_legacy) {
+      JsValueRef funId; 
       JsValueRef moduleId; 
       JsCreatePropertyId("couch_chakra", strlen("couch_chakra"), &moduleId);
-      
-      JsValueRef funId; 
       JsCreatePropertyId("normalizeFunction", strlen("normalizeFunction"), &funId);
       
       JsValueRef module;
       JsGetProperty(globalObject, moduleId, &module);
       JsGetProperty(module, funId, &evalCxContext->normalizeFunction);
+    }
+
+    if(evalCxContext->args->use_jasmine) {
+      run_script("initJasmine", "var env = couch_chakra.initJasmine(this);");
     }
 
     for(int i = 0 ; args->scripts[i] ; i++) {
@@ -556,10 +580,15 @@ int main(int argc, const char* argv[])
       error = JsRun(script, JS_SOURCE_CONTEXT_NONE, sourceHref, JsParseScriptAttributeNone, &result);
        
       if(error != JsNoError && args->debug) {
+        fprintf(stderr, "Error running %s: %d", args->scripts[i], error);
         printException(error);
       } 
     }
     
+    if(evalCxContext->args->use_jasmine) {
+      run_script("runJasmine", "couch_chakra.runJasmine(env);");
+    }
+
     free(evalCxContext); 
     JsSetCurrentContext(JS_INVALID_REFERENCE);
     JsDisposeRuntime(runtime);
