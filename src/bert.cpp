@@ -65,17 +65,8 @@ struct val {
   } value; 
 };
 
-
-inline unsigned char decode_small_int(const char* buffer,  unsigned int* offset);
-inline int decode_int(const char* buffer,  unsigned int* offset);
-inline double decode_new_float(const char* buffer, unsigned int* offset);
-inline long long int decode_small_big(const char* buffer, unsigned int* offset);
-inline shared_string* decode_atom(const char* buffer, unsigned int* offset);
-inline shared_string* decode_binary(const char* buffer, unsigned int* offset);
-inline shared_string* decode_string(const char* buffer, unsigned int* offset);
-inline JsValueRef decode_intern(const char* buffer, unsigned int* offset);
-
-val* decode_intern_(const char* buffer, unsigned int* offset);
+static inline val* decode_intern_(const char* buffer, unsigned int* offset);
+static inline unsigned char decode_small_int(const char* buffer,  unsigned int* offset);
 JsValueRef convert(val* v); 
 
 JsValueRef decode(const char* buffer) {
@@ -114,73 +105,6 @@ JS_FUN_DEF(BertConstructor)
   return argv[0];
 }
 
-val* decode_intern_(const char* buffer, unsigned int* offset) {
-  auto v = (val*) malloc(sizeof(val));
-  v->type = decode_small_int(buffer, offset);
-  
-  switch(v->type) {
-    case ATOM:
-      v->value._string = decode_atom(buffer, offset);
-      break; 
-    case BINARY:
-      v->value._string = decode_binary(buffer, offset); 
-      break; 
-    case STRING:
-      v->value._string = decode_string(buffer, offset); 
-      break; 
-    case SMALL_INTEGER: 
-      v->value._char = decode_small_int(buffer, offset); 
-      break; 
-    case INTEGER:
-      v->value._int = decode_int(buffer, offset); 
-      break; 
-    case SMALL_BIG:
-      v->value._llint = decode_small_big(buffer, offset);
-      break; 
-    case NEW_FLOAT: 
-      v->value._double = decode_new_float(buffer, offset); 
-      break; 
-    case LIST:
-      {
-      v->value._list = (list*) malloc(sizeof(list));
-      v->value._list->length = decode_int(buffer, offset);
-      v->value._list->head = (val**) malloc(sizeof(val*) * v->value._list->length);
-
-      for(int i = 0; i < v->value._list->length; i++) {
-        //v->value._list->head[i] = decode_intern_(buffer, offset);
-        *(v->value._list->head + i) = decode_intern_(buffer, offset);
-      }
-      
-      if(decode_small_int(buffer, offset) != NIL) {
-        (*offset)--;
-      }
-
-      break;
-      } 
-    case SMALL_TUPLE:
-      v->value._list = (list*) malloc(sizeof(list)); 
-      v->value._list->length = decode_small_int(buffer, offset);
-      v->value._list->head = (val**) malloc(sizeof(val*) * v->value._list->length);
-
-      for(int i = 0; i < v->value._list->length; i++) {
-        //v->value._list->head[i] = decode_intern_(buffer, offset);
-        *(v->value._list->head + i) = decode_intern_(buffer, offset);
-      }
-      break; 
-    case LARGE_TUPLE: 
-      v->value._list = (list*) malloc(sizeof(list)); 
-      v->value._list->length = decode_int(buffer, offset);
-      v->value._list->head = (val**) malloc(sizeof(val*) * v->value._list->length);
-
-      for(int i = 0; i < v->value._list->length; i++) {
-        v->value._list->head[i] = decode_intern_(buffer, offset);
-      }
-      break; 
-    default :
-     break; 
-  }
-  return v;
-}
 
 std::unordered_map<uint64_t, JsPropertyIdRef> propCache1;
 std::unordered_map<shared_string, JsPropertyIdRef> propCache;
@@ -191,19 +115,8 @@ JsValueRef convert_list(list* l) {
   JsValueRef jsArray;
   JsCreateArray(l->length, &jsArray);
   
-  /*
-  if(l->length > indexVector.size()) {
-    for(int i = indexVector.size(); i < l->length; i++) {
-      JsValueRef index;
-      JsIntToNumber(i, &index);
-      JsAddRef(index, NULL);
-      indexVector.push_back(index);
-    }
-  }
-  */
   for(int i = 0; i < l->length; i++) {
-    //auto jsValue = convert(l->head[i]);
-    auto jsValue = convert(*(l->head + i));
+    auto jsValue = convert(l->head[i]);
     JsValueRef index;
     JsIntToNumber(i, &index);
     JsSetIndexedProperty(jsArray, index, jsValue);
@@ -260,9 +173,6 @@ JsValueRef convert(val* v) {
     case LIST: return convert_list(v->value._list);
     case SMALL_TUPLE:
                {
-                  //JsValueRef jsValue;
-                  //JsGetFalseValue(&jsValue);
-                  //return jsValue;
                   if(v->value._list->length == 3
                       && v->value._list->head[0]->type == ATOM
                       && v->value._list->head[1]->type == ATOM
@@ -271,6 +181,9 @@ JsValueRef convert(val* v) {
                       && strncmp(v->value._list->head[0]->value._string->head, "bert", 4) == 0
                       && strncmp(v->value._list->head[1]->value._string->head, "dict", 4) == 0
                       && v->value._list->head[2]->type == LIST)
+                  /*
+                  if(v->value._list->length == 1
+                      && v->value._list->head[0]->type == LIST)*/ 
                   {
                     auto propList = v->value._list->head[2]->value._list;
                     
@@ -312,29 +225,82 @@ JsValueRef convert(val* v) {
   return NULL;
 }
 
-inline unsigned char decode_small_int(const char* buffer, unsigned int* offset) {
+static inline int decode_int(const char* buffer,  unsigned int* offset);
+static inline unsigned short decode_uint16(const char* buffer,  unsigned int* offset);
+static inline unsigned int decode_uint32(const char* buffer,  unsigned int* offset);
+static inline double decode_new_float(const char* buffer, unsigned int* offset);
+static inline long long int decode_small_big(const char* buffer, unsigned int* offset);
+static inline shared_string* decode_string(const char* buffer, unsigned int* offset, size_t length);
+static inline list* decode_list(const char* buffer, unsigned int* offset, size_t length);
+
+static inline val* decode_intern_(const char* buffer, unsigned int* offset) {
+  auto v = (val*) malloc(sizeof(val));
+  v->type = decode_small_int(buffer, offset);
+  
+  switch(v->type) {
+    case ATOM:
+      v->value._string = decode_string(buffer, offset, decode_uint16(buffer, offset));
+      break; 
+    case BINARY:
+      v->value._string = decode_string(buffer, offset, decode_uint32(buffer, offset));
+      break; 
+    case STRING:
+      v->value._string = decode_string(buffer, offset, decode_uint16(buffer, offset)); 
+      break; 
+    case SMALL_INTEGER: 
+      v->value._char = decode_small_int(buffer, offset); 
+      break; 
+    case INTEGER:
+      v->value._int = decode_int(buffer, offset); 
+      break; 
+    case SMALL_BIG:
+      v->value._llint = decode_small_big(buffer, offset);
+      break; 
+    case NEW_FLOAT: 
+      v->value._double = decode_new_float(buffer, offset); 
+      break; 
+    case LIST:
+      v->value._list = decode_list(buffer, offset, decode_int(buffer, offset));
+      if(decode_small_int(buffer, offset) != NIL) {
+        (*offset)--;
+      }
+      break;
+    case SMALL_TUPLE:
+      v->value._list = decode_list(buffer, offset, decode_small_int(buffer, offset));
+      break; 
+    case LARGE_TUPLE: 
+      v->value._list = decode_list(buffer, offset, decode_int(buffer, offset));
+      break; 
+    default :
+     break; 
+  }
+  return v;
+}
+
+
+static inline unsigned char decode_small_int(const char* buffer, unsigned int* offset) {
   return buffer[(*offset)++]; 
 }
 
-inline unsigned short decode_uint16(const char* buffer, unsigned int* offset) {
+static inline unsigned short decode_uint16(const char* buffer, unsigned int* offset) {
   auto value =  *((unsigned short*) (buffer + *offset));
   *offset += 2;
   return ntohs(value);
 }
 
-inline unsigned int decode_uint32(const char* buffer, unsigned int* offset) {
+static inline unsigned int decode_uint32(const char* buffer, unsigned int* offset) {
   auto value =  *((unsigned int*) (buffer + *offset));
   *offset += 4;
   return ntohl(value);
 }
 
-inline int decode_int(const char* buffer, unsigned int* offset) {
+static inline int decode_int(const char* buffer, unsigned int* offset) {
   auto value =  *((int*) (buffer + *offset));
   *offset += 4;
   return ntohl(value);
 }
 
-inline double decode_new_float(const char* buffer, unsigned int* offset) {
+static inline double decode_new_float(const char* buffer, unsigned int* offset) {
   const char b[] = {
     buffer[*offset + 7],
     buffer[*offset + 6],
@@ -352,31 +318,25 @@ inline double decode_new_float(const char* buffer, unsigned int* offset) {
   return value;
 }
 
-inline shared_string* decode_binary(const char* buffer, unsigned int* offset) {
+static inline shared_string* decode_string(const char* buffer, unsigned int* offset, size_t length) {
   auto value = (shared_string*) malloc(sizeof(shared_string)); 
-  value->length = decode_uint32(buffer, offset);
-  value->head = buffer + *offset;
-  
-  *offset += value->length;
-  return value; 
-}
-
-inline shared_string* decode_atom(const char* buffer, unsigned int* offset) {
-  auto value = (shared_string*) malloc(sizeof(shared_string)); 
-  value->length = decode_uint16(buffer, offset);
+  value->length = length; 
   value->head = buffer + *offset;
 
   *offset += value->length;
   return value; 
 }
 
-inline shared_string* decode_string(const char* buffer, unsigned int* offset) {
-  auto value = (shared_string*) malloc(sizeof(shared_string)); 
-  value->length = decode_uint16(buffer, offset);
-  value->head = buffer + *offset;
+static inline list* decode_list(const char* buffer, unsigned int* offset, size_t length) {
+  list* _list= (list*) malloc(sizeof(list)); 
+  _list->length = length; 
+  _list->head = (val**) malloc(sizeof(val*) * _list->length);
 
-  *offset += value->length;
-  return value; 
+  for(int i = 0; i < length; i++) {
+    //_list->head[i] = decode_intern_(buffer, offset);
+    *(_list->head + i) = decode_intern_(buffer, offset);
+  }
+  return _list;
 }
 
 
@@ -389,9 +349,10 @@ unsigned long long int powers[] = {
   (unsigned long long int) 256 * 256 * 256 * 256 * 256, 
   (unsigned long long int) 256 * 256 * 256 * 256 * 256 * 256, 
   (unsigned long long int) 256 * 256 * 256 * 256 * 256 * 256 * 256
+  //afterwards JavaScripts number can't hold the value anyway..
 };
 
-inline long long int decode_small_big(const char* buffer, unsigned int* offset) {
+static inline long long int decode_small_big(const char* buffer, unsigned int* offset) {
   auto length = decode_small_int(buffer, offset);
   auto sign = decode_small_int(buffer, offset);
  
