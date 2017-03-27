@@ -63,6 +63,27 @@ struct val {
     shared_string* _string;
     list* _list;
   } value; 
+  
+  inline bool is_prop_list() const 
+  {
+    //return value._list->length == 1
+    //  && value._list->head[0]->type == LIST;
+    return type == SMALL_TUPLE  
+      && value._list->length == 3
+      && value._list->head[0]->type == ATOM
+      && value._list->head[1]->type == ATOM
+      && value._list->head[0]->value._string->length == 4
+      && value._list->head[1]->value._string->length == 4
+      && strncmp(value._list->head[0]->value._string->head, "bert", 4) == 0
+      && strncmp(value._list->head[1]->value._string->head, "dict", 4) == 0
+      && value._list->head[2]->type == LIST;
+  }
+
+  inline list* prop_list() const 
+  {
+    //return value._list->head[0]->value._list;
+    return value._list->head[2]->value._list;
+  }
 };
 
 static inline val* decode_intern_(const char* buffer, unsigned int* offset);
@@ -124,6 +145,31 @@ JsValueRef convert_list(list* l) {
   return jsArray;
 }
 
+JsValueRef convert_prop_list(list* propList) {
+  JsValueRef value;
+  JsCreateObject(&value);
+
+  for(int i = 0; i < propList->length; i++) {
+    auto kvp = propList->head[i]->value._list;  
+    auto propName = kvp->head[0]->value._string;
+    auto propVal = kvp->head[1];
+
+    auto propHash = t1ha0(propName->head, propName->length, 12345);
+    auto propId = propCache1[propHash];
+    //auto propId = propCache[*propName];
+
+    if(propId == NULL) {
+      JsCreatePropertyId(propName->head, propName->length, &propId);
+      JsAddRef(propId, NULL);
+      propCache1[propHash] = propId; 
+      //propCache[*propName] = propId; 
+    }
+    auto val = convert(propVal);
+    JsSetProperty(value, propId, val, true);
+  }
+  return value;
+}
+
 JsValueRef convert(val* v) {
   switch(v->type) {
     case ATOM:
@@ -171,50 +217,13 @@ JsValueRef convert(val* v) {
                  return jsValue;
                }
     case LIST: return convert_list(v->value._list);
-    case SMALL_TUPLE:
-               {
-                  if(v->value._list->length == 3
-                      && v->value._list->head[0]->type == ATOM
-                      && v->value._list->head[1]->type == ATOM
-                      && v->value._list->head[0]->value._string->length == 4
-                      && v->value._list->head[1]->value._string->length == 4
-                      && strncmp(v->value._list->head[0]->value._string->head, "bert", 4) == 0
-                      && strncmp(v->value._list->head[1]->value._string->head, "dict", 4) == 0
-                      && v->value._list->head[2]->type == LIST)
-                  /*
-                  if(v->value._list->length == 1
-                      && v->value._list->head[0]->type == LIST)*/ 
-                  {
-                    auto propList = v->value._list->head[2]->value._list;
-                    
-                    JsValueRef value;
-                    JsCreateObject(&value);
-
-                    for(int i = 0; i < propList->length; i++) {
-                      auto kvp = propList->head[i]->value._list;  
-                      auto propName = kvp->head[0]->value._string;
-                      auto propVal = kvp->head[1];
-                     
-                      auto propHash = t1ha0(propName->head, propName->length, 12345);
-                      auto propId = propCache1[propHash];
-                      //auto propId = propCache[*propName];
-
-                      if(propId == NULL) {
-                        JsCreatePropertyId(propName->head, propName->length, &propId);
-                        JsAddRef(propId, NULL);
-                        propCache1[propHash] = propId; 
-                        //propCache[*propName] = propId; 
-                      }
-                      auto val = convert(propVal);
-                      JsSetProperty(value, propId, val, true);
-                    }
-                    return value;
-                  } else {
-                    return convert_list(v->value._list);
-                  }
-               }
-
     case LARGE_TUPLE: 
+    case SMALL_TUPLE:
+               if(v->is_prop_list()) {
+                 return convert_prop_list(v->prop_list());
+               } else {
+                 return convert_list(v->value._list);
+               }
     default : {
                 JsValueRef falseValue;
                 JsGetFalseValue(&falseValue);
