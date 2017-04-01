@@ -29,34 +29,6 @@ const unsigned char NIL = 106;
 const unsigned char ZERO = 0;
 const unsigned char ZERO_CHAR = 48;
 
-
-struct val;
-
-struct shared_string {
-  const char* head;
-  size_t length;
-  bool operator==(const shared_string&other) const
-  {
-    return other.length == length && strncmp(other.head, head, length) == 0; 
-  }
-};
-
-namespace std {
-template <>
-struct std::hash<shared_string>
-{
-  std::size_t operator()(const shared_string& k) const
-  {
-    return t1ha0(k.head, k.length, 12345);
-  }
-};
-}
-
-struct list {
-  val** head;
-  size_t length;
-};
-
 struct val {
   unsigned char type;
   union {
@@ -64,41 +36,40 @@ struct val {
     double _double;
     int _int;
     long long int _llint;
-    shared_string _string;
-    list _list;
+    const char* _string;
+    val* _list;
   } value; 
+  
+  size_t length;
+  val *next; 
   
   inline bool is_prop_list() const 
   {
     //return value._list.length == 1
     //  && value._list.head[0]->type == LIST;
     return type == SMALL_TUPLE  
-      && value._list.length == 3
-      && value._list.head[0]->type == ATOM
-      && value._list.head[1]->type == ATOM
-      && value._list.head[0]->value._string.length == 4
-      && value._list.head[1]->value._string.length == 4
-      && strncmp(value._list.head[0]->value._string.head, "bert", 4) == 0
-      && strncmp(value._list.head[1]->value._string.head, "dict", 4) == 0
-      && value._list.head[2]->type == LIST;
+      && length == 3
+      && value._list->type == ATOM
+      && value._list->next->type == ATOM
+      && value._list->length == 4
+      && value._list->next->length == 4
+      && strncmp(value._list->value._string, "bert", 4) == 0
+      && strncmp(value._list->next->value._string, "dict", 4) == 0
+      && value._list->next->next->type == LIST;
   }
 
-  inline list* prop_list() const 
+  inline val* prop_list() const 
   {
-    //return value._list.head[0]->value._list;
-    return &value._list.head[2]->value._list;
+    return value._list->next->next;
+    //return value._list;
   }
 };
-
-/*
-std::allocator<val> valAlloc;
-std::allocator<val*> valPtrAlloc;
-std::allocator<shared_string> strAlloc;
-std::allocator<list> listAlloc;
-*/
  
 template <typename T>
 using allocator = MemoryPool<T, 4096>;
+
+template <typename T>
+using allocator1 = std::allocator<T>; 
 
 allocator<val> valAlloc;
 
@@ -145,45 +116,43 @@ JS_FUN_DEF(BertConstructor)
 }
 
 
-std::unordered_map<uint64_t, JsPropertyIdRef> propCache1;
-std::unordered_map<shared_string, JsPropertyIdRef> propCache;
-std::vector<JsValueRef> indexVector;
+std::unordered_map<uint64_t, JsPropertyIdRef> propCache;
 
-
-JsValueRef convert_list(list* l) {
+JsValueRef convert_list(val* l) {
   JsValueRef jsArray;
   JsCreateArray(l->length, &jsArray);
-  
+ 
+  val* current = l->value._list; 
   for(int i = 0; i < l->length; i++) {
-    auto jsValue = convert(l->head[i]);
+    auto jsValue = convert(current);
     JsValueRef index;
     JsIntToNumber(i, &index);
     JsSetIndexedProperty(jsArray, index, jsValue);
+    current = current->next;
   }
   return jsArray;
 }
 
-JsValueRef convert_prop_list(list* propList) {
+JsValueRef convert_prop_list(val* propList) {
   JsValueRef value;
   JsCreateObject(&value);
 
+  val* currentKvp = propList->value._list; 
   for(int i = 0; i < propList->length; i++) {
-    auto kvp = &propList->head[i]->value._list;  
-    auto propName = &kvp->head[0]->value._string;
-    auto propVal = kvp->head[1];
+    auto propName = currentKvp->value._list;
+    auto propVal = currentKvp->value._list->next;
 
-    auto propHash = t1ha0(propName->head, propName->length, 12345);
-    auto propId = propCache1[propHash];
-    //auto propId = propCache[*propName];
+    auto propHash = t1ha0(propName->value._string, propName->length, 12345);
+    auto propId = propCache[propHash];
 
     if(propId == NULL) {
-      JsCreatePropertyId(propName->head, propName->length, &propId);
+      JsCreatePropertyId(propName->value._string, propName->length, &propId);
       JsAddRef(propId, NULL);
-      propCache1[propHash] = propId; 
-      //propCache[*propName] = propId; 
+      propCache[propHash] = propId; 
     }
     auto val = convert(propVal);
     JsSetProperty(value, propId, val, true);
+    currentKvp = currentKvp->next;
   }
   return value;
 }
@@ -194,16 +163,14 @@ JsValueRef convert(val* v) {
     case BINARY:
     case STRING:
                {
-                 auto str = &v->value._string;
                  JsValueRef jsValue;
                  
-                 if(str->length == 0) {
+                 if(v->length == 0) {
                   JsGetFalseValue(&jsValue);
                   return jsValue; 
                  }
                  
-                 JsCreateString(str->head, str->length, &jsValue);
-                 //delete str; 
+                 JsCreateString(v->value._string, v->length, &jsValue);
                  return jsValue;
                }
     case SMALL_INTEGER: 
@@ -234,13 +201,13 @@ JsValueRef convert(val* v) {
                  JsDoubleToNumber(v->value._double, &jsValue);
                  return jsValue;
                }
-    case LIST: return convert_list(&v->value._list);
+    case LIST: return convert_list(v);
     case LARGE_TUPLE: 
     case SMALL_TUPLE:
                if(v->is_prop_list()) {
                  return convert_prop_list(v->prop_list());
                } else {
-                 return convert_list(&v->value._list);
+                 return convert_list(v);
                }
     default : {
                 JsValueRef falseValue;
@@ -257,13 +224,13 @@ static inline unsigned short decode_uint16(const char* buffer,  unsigned int* of
 static inline unsigned int decode_uint32(const char* buffer,  unsigned int* offset);
 static inline double decode_new_float(const char* buffer, unsigned int* offset);
 static inline long long int decode_small_big(const char* buffer, unsigned int* offset);
-static inline shared_string* decode_string(const char* buffer, unsigned int* offset, size_t length, shared_string* str);
-static inline list* decode_list(const char* buffer, unsigned int* offset, size_t length, list* list);
+static inline val* decode_string(const char* buffer, unsigned int* offset, size_t length, val* str);
+static inline val* decode_list(const char* buffer, unsigned int* offset, size_t length, val* list);
 
 
 static inline val* decode_intern_(const char* buffer, unsigned int* offset)
 {
-  auto v = valAlloc.allocate();
+  auto v = valAlloc.allocate(1);
   return decode_intern_(buffer, offset, v);
 } 
 
@@ -272,13 +239,13 @@ static inline val* decode_intern_(const char* buffer, unsigned int* offset, val*
   
   switch(v->type) {
     case ATOM:
-      decode_string(buffer, offset, decode_uint16(buffer, offset), &v->value._string);
+      decode_string(buffer, offset, decode_uint16(buffer, offset), v);
       break; 
     case BINARY:
-      decode_string(buffer, offset, decode_uint32(buffer, offset), &v->value._string);
+      decode_string(buffer, offset, decode_uint32(buffer, offset), v);
       break; 
     case STRING:
-      decode_string(buffer, offset, decode_uint16(buffer, offset), &v->value._string);
+      decode_string(buffer, offset, decode_uint16(buffer, offset), v);
       break; 
     case SMALL_INTEGER: 
       v->value._char = decode_small_int(buffer, offset); 
@@ -293,16 +260,16 @@ static inline val* decode_intern_(const char* buffer, unsigned int* offset, val*
       v->value._double = decode_new_float(buffer, offset); 
       break; 
     case LIST:
-      decode_list(buffer, offset, decode_int(buffer, offset), &v->value._list);
+      decode_list(buffer, offset, decode_int(buffer, offset), v);
       if(decode_small_int(buffer, offset) != NIL) {
         (*offset)--;
       }
       break;
     case SMALL_TUPLE:
-      decode_list(buffer, offset, decode_small_int(buffer, offset), &v->value._list);
+      decode_list(buffer, offset, decode_small_int(buffer, offset), v);
       break; 
     case LARGE_TUPLE: 
-      decode_list(buffer, offset, decode_int(buffer, offset), &v->value._list);
+      decode_list(buffer, offset, decode_int(buffer, offset), v);
       break; 
     default :
      break; 
@@ -351,20 +318,28 @@ static inline double decode_new_float(const char* buffer, unsigned int* offset) 
   return value;
 }
 
-static inline shared_string* decode_string(const char* buffer, unsigned int* offset, size_t length, shared_string *str) {
+static inline val* decode_string(const char* buffer, unsigned int* offset, size_t length, val* str) {
   str->length = length; 
-  str->head = buffer + *offset;
+  str->value._string = buffer + *offset;
 
   *offset += length;
   return str; 
 }
 
-static inline list* decode_list(const char* buffer, unsigned int* offset, size_t length, list* _list) {
+static inline val* decode_list(const char* buffer, unsigned int* offset, size_t length, val* _list) {
   _list->length = length; 
-  _list->head = (val**) malloc(sizeof(val*) * length);
+  _list->value._list = valAlloc.allocate(1);
   
+  auto current = _list->value._list; 
   for(int i = 0; i < length; i++) {
-    *(_list->head + i) = decode_intern_(buffer, offset);
+    decode_intern_(buffer, offset, current);
+    
+    if(i < length) {
+      current->next = valAlloc.allocate(1);
+      current = current->next;
+    } else {
+      current->next = NULL;
+    }
   }
   return _list;
 }
