@@ -118,24 +118,21 @@ JS_FUN_DEF(BertConstructor)
 
 std::unordered_map<uint64_t, JsPropertyIdRef> propCache;
 
-JsValueRef convert_list(val* l) {
-  JsValueRef jsArray;
-  JsCreateArray(l->length, &jsArray);
+void convert_list(JsValueRef *jsArray, val* l) {
+  JsCreateArray(l->length, jsArray);
  
   val* current = l->value._list; 
   for(int i = 0; i < l->length; i++) {
     auto jsValue = convert(current);
     JsValueRef index;
     JsIntToNumber(i, &index);
-    JsSetIndexedProperty(jsArray, index, jsValue);
+    JsSetIndexedProperty(*jsArray, index, jsValue);
     current = current->next;
   }
-  return jsArray;
 }
 
-JsValueRef convert_prop_list(val* propList) {
-  JsValueRef value;
-  JsCreateObject(&value);
+void convert_prop_list(JsValueRef *jsObj, val* propList) {
+  JsCreateObject(jsObj);
 
   val* currentKvp = propList->value._list; 
   for(int i = 0; i < propList->length; i++) {
@@ -151,72 +148,56 @@ JsValueRef convert_prop_list(val* propList) {
       propCache[propHash] = propId; 
     }
     auto val = convert(propVal);
-    JsSetProperty(value, propId, val, true);
+    JsSetProperty(*jsObj, propId, val, true);
     currentKvp = currentKvp->next;
   }
-  return value;
 }
 
 JsValueRef convert(val* v) {
+  JsValueRef jsValue;
+  JsGetFalseValue(&jsValue);
+  
   switch(v->type) {
     case ATOM:
     case BINARY:
     case STRING:
-               {
-                 JsValueRef jsValue;
-                 
-                 if(v->length == 0) {
-                  JsGetFalseValue(&jsValue);
-                  return jsValue; 
-                 }
-                 
-                 JsCreateString(v->value._string, v->length, &jsValue);
-                 return jsValue;
-               }
+      if(v->length == 0) {
+        JsGetFalseValue(&jsValue);
+        return jsValue; 
+      }
+
+      JsCreateString(v->value._string, v->length, &jsValue);
+      break;
     case SMALL_INTEGER: 
-               {
-                 JsValueRef jsValue;
-                 JsIntToNumber(v->value._char, &jsValue);
-                 return jsValue;
-               }
+      JsIntToNumber(v->value._char, &jsValue);
+      break;
     case INTEGER:
-               {
-                 JsValueRef jsValue;
-                 JsIntToNumber(v->value._int, &jsValue);
-                 return jsValue;
-               }
+      JsIntToNumber(v->value._int, &jsValue);
+      break;
     case SMALL_BIG:
-               {
-                 JsValueRef jsValue;
-                 
-                 //JsIntToNumber doesn't have enough space to hold small bigs
-                 //have to pass by doubles ... 
-                 double dVal = v->value._llint;
-                 JsDoubleToNumber(dVal, &jsValue);
-                 return jsValue;
-               }
+      //JsIntToNumber doesn't have enough space to hold small bigs
+      //have to pass by doubles ... 
+      JsDoubleToNumber(v->value._llint, &jsValue);
+      break;
     case NEW_FLOAT: 
-               {
-                 JsValueRef jsValue;
-                 JsDoubleToNumber(v->value._double, &jsValue);
-                 return jsValue;
-               }
-    case LIST: return convert_list(v);
+      JsDoubleToNumber(v->value._double, &jsValue);
+      break;
+    case LIST: 
+      convert_list(&jsValue, v);
+      break;
     case LARGE_TUPLE: 
     case SMALL_TUPLE:
-               if(v->is_prop_list()) {
-                 return convert_prop_list(v->prop_list());
-               } else {
-                 return convert_list(v);
-               }
-    default : {
-                JsValueRef falseValue;
-                JsGetFalseValue(&falseValue);
-
-                return falseValue;
-              }
+      if(v->is_prop_list()) {
+        convert_prop_list(&jsValue, v->prop_list());
+      } else {
+        convert_list(&jsValue, v);
+      }
+      break;
+    default:
+      JsGetFalseValue(&jsValue);
+      break;
   }
-  return NULL;
+  return jsValue;
 }
 
 static inline int decode_int(const char* buffer,  unsigned int* offset);
