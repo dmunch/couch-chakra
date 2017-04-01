@@ -1,5 +1,5 @@
 CHAKRA_INCLUDE_DIR ?= /Users/jack/Projects/ChakraCore/lib/Jsrt/ 
-CHAKRA_LD_FLAGS ?= -L/Users/jack/Projects/ChakraCore/BuildLinux/Test/bin/ChakraCore/ -lChakraCore 
+CHAKRA_LD_FLAGS ?= -L/Users/jack/Projects/ChakraCore/out/Release -lChakraCore 
 
 CURDIR := $(shell pwd)
 BASEDIR := $(abspath $(CURDIR)/..)
@@ -17,8 +17,8 @@ OBJDIR = obj
 UNAME_SYS := $(shell uname -s)
 ifeq ($(UNAME_SYS), Darwin)
 	CC = cc
-	CFLAGS = -O3 -std=c99 -arch x86_64 -finline-functions -Wall -Wmissing-prototypes 
-	CXXFLAGS = -O3 -arch x86_64 -finline-functions -Wall
+	CFLAGS = -O3 -std=c99 -arch x86_64 -Wall -Wmissing-prototypes 
+	CXXFLAGS = -std=c++11 -O3 -arch x86_64 -Wall
 	LDFLAGS = -arch x86_64 -flat_namespace -undefined suppress
 else ifeq ($(UNAME_SYS), FreeBSD)
 	CC = cc
@@ -27,7 +27,7 @@ else ifeq ($(UNAME_SYS), FreeBSD)
 else ifeq ($(UNAME_SYS), Linux)
 	CC = gcc
 	CFLAGS = -O3 -std=c99 -finline-functions -Wall -Wmissing-prototypes
-	CXXFLAGS = -O3 -finline-functions -Wall
+	CXXFLAGS = -std=c++11 -O3 -finline-functions -Wall
 endif
 
 CFLAGS += -fPIC -I $(CHAKRA_INCLUDE_DIR)
@@ -59,7 +59,7 @@ $(C_SRC_OUTPUT): dist/couch_chakra.js.h $(OBJECTS)
 
 $(OBJDIR)/%.o: $(C_SRC_DIR)/%.c
 	@mkdir -p $(OBJDIR) 
-	$(COMPILE_CPP) $(OUTPUT_OPTION) $<
+	$(COMPILE_C) $(OUTPUT_OPTION) $<
 
 $(OBJDIR)/%.o: $(C_SRC_DIR)/%.cpp
 	@mkdir -p $(OBJDIR) 

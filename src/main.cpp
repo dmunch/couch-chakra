@@ -17,6 +17,7 @@
 
 #include <ChakraCore.h>
 
+#include "couch_chakra.h"
 #include "couch_args.h"
 #include "couch_readline.h"
 #include "couch_readfile.h"
@@ -25,7 +26,6 @@
 
 void beforeCollectFunWithContextCallback(JsRef funInContext, void* callbackState);
 
-void create_function(JsValueRef object, char* name, JsNativeFunction fun, void* callbackState);
 JsValueRef normalizeFunction(JsValueRef context, JsValueRef jsNormalizeFunction, JsValueRef funScript);
 void printException(JsErrorCode error);
 void printProperties(JsValueRef object);
@@ -52,21 +52,6 @@ JsValueRef couch_readline(FILE* fp)
     free(bytes);
     return str;
 }
-
-#define JS_FUN_DEF(name) JsValueRef name( \
-   JsValueRef callee,                     \
-   bool isConstructCall,		              \
-   JsValueRef *argv, 		                  \
-   unsigned short argc,	                  \
-   void *callbackState)
-
-JS_FUN_DEF(readline);
-JS_FUN_DEF(print);
-JS_FUN_DEF(seal);
-JS_FUN_DEF(gc);
-JS_FUN_DEF(quit);
-JS_FUN_DEF(evalcx);
-JS_FUN_DEF(runInContext);
 
 JS_FUN_DEF(readline)
 {
@@ -342,7 +327,6 @@ JS_FUN_DEF(TextEncoder_encode)
 
 JS_FUN_DEF(TextDecoder_decode)
 {
-  JsValueRef arrayBuffer;
   BYTE *arrayBufferStorage;
   unsigned int arrayBufferSize;
   JsValueRef string;
@@ -415,7 +399,7 @@ JS_FUN_DEF(read)
 }
 
 
-void create_function(JsValueRef object, char* name, JsNativeFunction fun, void* callbackState)
+void create_function(JsValueRef object, const char* name, JsNativeFunction fun, void* callbackState)
 {
   JsValueRef funHandle;
   JsCreateFunction(fun, callbackState, &funHandle);

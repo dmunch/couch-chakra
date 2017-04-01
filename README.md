@@ -63,7 +63,7 @@ perfectly ES6 code which can be run without the legacy mode enabled.
 
 ## Build it
 
-Couch-Chakra builds with current master of [ChakraCore](https://github.com/Microsoft/ChakraCore) (I used cb7817b) which I'm afraid you have to
+Couch-Chakra builds with current release/2.0 branch of [ChakraCore](https://github.com/Microsoft/ChakraCore) (I used c970d0f) which I'm afraid you have to
 build from sources. Once built, modify the first two lines of the [Makefile](Makefile) of this project
 and run `make`. If you want to run the (two very simplistic) tests, run `make check` . Everythings
 is very early, it builds on my machine™ which runs on MacOS X 10.11.6 with latest xcode.

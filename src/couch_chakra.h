@@ -10,18 +10,19 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-#ifndef COUCH_READFILE
-#define COUCH_READFILE
+#ifndef COUCH_CHAKRA 
+#define COUCH_CHAKRA 
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
 
-size_t slurp_file(const char* file, char** outbuf_p);
+#include <ChakraCore.h>
 
-#ifdef __cplusplus
-}
-#endif
+#define JS_FUN_DEF(name) JsValueRef name( \
+   JsValueRef callee,                     \
+   bool isConstructCall,                  \
+   JsValueRef *argv,                      \
+   unsigned short argc,                   \
+   void *callbackState)
+
+void create_function(JsValueRef object, const char* name, JsNativeFunction fun, void* callbackState);
 
 #endif
